@@ -20,3 +20,5 @@ dbConnection().then(res=>{
 }).catch(err=>{
     console.log("Error Occur while connecting to database")
 })
+
+module.exports = app;
