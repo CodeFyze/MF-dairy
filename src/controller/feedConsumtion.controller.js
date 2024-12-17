@@ -1,63 +1,127 @@
 
+import { Cow } from "../models/cow.model.js";
 import { DairyFarm } from "../models/dairyForm.js";
 import { FeedConsumtion } from "../models/feedConsumtion.model.js";
 import { FeedInventory } from "../models/feedInventory.model.js";
 import { ApiError } from "../utlis/ApiError.js";
 const morningFeedConsumtion=async (req,res,next) => {
-    const {
-        date,
-        morning
-    } = req.body;
-    if (!date || !morning) {
-        return next(new ApiError(400, "All Fields are required"));
-    }
-   
-    const exitsFeed = await FeedConsumtion.findOne({$and:[{date},{dairyFarmId:req.user.dairyFarmId},{evening:{$exists:true}}]})
-    if (exitsFeed) {
-        return next(new ApiError(400, "Feed Consumtion for this dairyFarm and date already exists"));
-    }
+   const { cowId, date, morning } = req.body;
 
-const exitsFeedMorning = await FeedConsumtion.findOne({$and:[{date},{dairyFarmId:req.user.dairyFarmId},{morning:{$exists:true}}]})
-    if (exitsFeedMorning) {
-        return next(new ApiError(400, "Morning Feed Consumtion for dairyFarm and date already exists"));
-    }
+     if (!cowId || !date || !morning) {
+       return next(new ApiError(400, "All Fields are required"));
+     }
+     const exitsCow = await Cow.findOne({ _id: cowId });
+     if (!exitsCow) {
+       return next(new ApiError(400, "Cow Not Found"));
+     }
+   
+     const existsTodayFeedConsumtion = await FeedConsumtion.findOne({
+       $and: [
+         { cowId },
+         { date },
+         { dairyFarmId: req.user.dairyFarmId },
+         { evening: { $gt: 0 } },
+       ],
+     });
+
+ if (existsTodayFeedConsumtion) {
+    return next(
+      new ApiError(
+        400,
+        "Today Feed Consumtion for this cow and date already exists"
+      )
+    );
+  }
+
+  const existsMorningFeedSumtion = await FeedConsumtion.findOne({
+    cowId,
+    date,
+    morning: { $exists: true },
+  });
+
+  if (existsMorningFeedSumtion) {
+    return next(
+      new ApiError(
+        400,
+        "Morning Feed Consumtion for this cow and date already exists"
+      )
+    );
+  }
 
   const feedAmount=await FeedInventory.findOne({dairyFarmId:req.user.dairyFarmId}) 
-   if(!feedAmount) {
-    next(new ApiError(400,"Error Occur while fetching feed amount"))
+  if(!feedAmount) {
+   next(new ApiError(400,"Error Occur while fetching feed amount"))
+  }
+   if(feedAmount.feedAmount<morning){
+   return next(new ApiError(400,"Not enough feed amount"))
    }
-    if(feedAmount.feedAmount<morning){
-    return next(new ApiError(400,"Not enough feed amount"))
-    }
 
-    const feedConsumtion = await FeedConsumtion.create({morning,date,dairyFarmId:req.user.dairyFarmId,createdBy:req?.user._id})
-  
-    if(!feedConsumtion){
-        return next(new ApiError(500, "Error creating Morning Feed Consumtion"));
-    }
+  const morningFeedConsumtion = await FeedConsumtion.create({
+    cowId,
+    morning,
+    date,
+    dairyFarmId: req.user.dairyFarmId,
+    createdBy: req?.user._id,
+    total: morning,
+    evening: 0,
+  });
+
+  if (!morningFeedConsumtion) {
+    return next(new ApiError(500, "Error creating morning Feed Consumtion"));
+  }
+ 
   feedAmount.feedAmount=feedAmount.feedAmount -morning
-  feedAmount.save()
-    res.status(201).json({
-        message: "Morning Feed Consumtion created successfully",
-        success: true,
-        feedConsumtion
-    })
+ await feedAmount.save()
+  res.status(201).json({
+    message: "Morning Feed Consumtion created successfully",
+    success: true,
+    morningFeedConsumtion,
+  });
 }
 
 const eveningFeedConsumtion=async (req,res,next) => {
-    const {
-        evening,
-        date
-    } = req.body;
-    if (  !date||  !evening) {
-        return next(new ApiError(400, "All Fields are required"));
-    }
-   
-    const exitsFeed = await FeedConsumtion.findOne({$and:[{dairyFarmId:req.user.dairyFarmId},{date},{evening:{$exists:true}}]})
-   
-    if (exitsFeed) {
-        return next(new ApiError(400, "Feed Consumtion for this dairyfarm and date already exists"));
-    }
+  const { cowId, date, evening } = req.body;
+
+  if (!cowId || !date || !evening) {
+    return next(new ApiError(400, "All Fields are required"));
+  }
+  const exitsCow = await Cow.findOne({ _id: cowId });
+  if (!exitsCow) {
+    return next(new ApiError(400, "Cow Not Found"));
+  }
+
+  const existsTodayFeedConsumtion = await FeedConsumtion.findOne({
+    $and: [
+      { cowId },
+      { date },
+      { dairyFarmId: req.user.dairyFarmId },
+      { evening: { $gt: 0 } },
+    ],
+  });
+
+if (existsTodayFeedConsumtion) {
+ return next(
+   new ApiError(
+     400,
+     "Today Feed Consumtion for this cow and date already exists"
+   )
+ );
+}
+
+const existsMorningFeedSumtion = await FeedConsumtion.findOne({
+ cowId,
+ date,
+ morning: { $exists: true },
+});
+
+if (!existsMorningFeedSumtion) {
+ return next(
+   new ApiError(
+     400,
+     "Morning  feed consumtion does not exist for this cow"
+   )
+ );
+}
 
     const feedAmount=await FeedInventory.findOne({dairyFarmId:req.user.dairyFarmId}) 
     if(!feedAmount) {
@@ -67,15 +131,15 @@ const eveningFeedConsumtion=async (req,res,next) => {
      return next(new ApiError(400,"Not enough feed amount"))
      }
 
-const exitsFeedMorning = await FeedConsumtion.findOne({$and:[{date},{dairyFarmId:req.user.dairyFarmId},{morning:{$exists:true}}]})
+
     
-    exitsFeedMorning.evening= evening
-    exitsFeedMorning.total=evening +exitsFeedMorning.morning
-    await exitsFeedMorning.save()
+     existsMorningFeedSumtion.evening= evening
+     existsMorningFeedSumtion.total=evening +existsMorningFeedSumtion.morning
+    await existsMorningFeedSumtion.save()
   
 
     feedAmount.feedAmount=feedAmount.feedAmount -evening
-    feedAmount.save()
+   await feedAmount.save()
     res.status(201).json({
         message: "evening Feed Consumtion created successfully",
         success: true,
