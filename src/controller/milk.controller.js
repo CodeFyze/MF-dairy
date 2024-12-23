@@ -273,6 +273,7 @@ const getTodayMilkProductionCount = async (req, res, next) => {
     todayMilkCount,
   });
 };
+
 const updateMilkRecordById = async (req, res, next) => {
   const { _id } = req.params;
   const { morning, evening, total } = req.body;
