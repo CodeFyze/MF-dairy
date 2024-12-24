@@ -30,3 +30,7 @@ app.use("/api/feedInventory",feedInventoryRoute)
 
 import { medicalRecordRoute } from "./route/medicalRecordRoute.js";
 app.use("/api/medicalRecord",medicalRecordRoute)
+
+
+import { milkSaleRoute } from "./route/milkSale.route.js";
+app.use("/api/milkSale",milkSaleRoute)
